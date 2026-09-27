@@ -1,3 +1,30 @@
+## v0.5.0 — Consistent tool names and programmable engine configuration
+
+The tool definitions were rewritten against the TDQS rubric, and two tools changed
+name: `web_search` is now `search_web`, `engine_status` is now `get_engine_status`.
+All five tools follow the same verb_noun pattern. Arguments, results and error texts
+are unchanged, so only clients that keep an allowlist of tool names need an edit.
+
+`update_engine_config` is new: it enables or disables engines, sets the search and
+fetch rotation order, and sets monthly or daily limits per engine. It writes the same
+local configuration file as the dashboard and applies to later searches without a
+restart; API keys stay in the dashboard.
+
+Every description now states when to use the tool and how failures surface, and all
+five tools carry MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+`openWorldHint`).
+
+```sh
+brew update && brew upgrade robin-bially/tap/search-rotation
+```
+
+Or run the pinned GitHub version:
+
+```sh
+npx -y --allow-git=all github:robin-bially/search-rotation-mcp#v0.5.0
+```
+
+
 ## v0.4.11 — Distribution under the robin-bially account
 
 The GitHub account moved from `localfoundry` to `robin-bially`, so every distribution

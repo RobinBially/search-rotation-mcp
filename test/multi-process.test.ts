@@ -26,7 +26,7 @@ test('Two stdio harnesses use distinct dashboards and reload shared engine confi
       const client = new Client({name:'harness-test',version:'1'}); clients.push(client);
       await client.connect(transport,{timeout:10000});
       assert.equal(client.getServerVersion()?.version,VERSION);
-      assert.equal((await client.listTools()).tools.length,4);
+      assert.equal((await client.listTools()).tools.length,5);
       const url = logs.match(/Dashboard: (http:\/\/[^\s]+)/)?.[1]; assert.ok(url); urls.push(url);
       assert.equal((await (await fetch(url+'api/meta')).json()).version,VERSION);
     }
@@ -37,9 +37,16 @@ test('Two stdio harnesses use distinct dashboards and reload shared engine confi
     assert.equal(saved.status,200);
     const other = await (await fetch(urls[1]+'api/config')).json();
     assert.equal(other.engines.find((e:any) => e.id === 'exa').enabled,false);
-    const result = await clients[1].callTool({name:'engine_status',arguments:{}});
+    const result = await clients[1].callTool({name:'get_engine_status',arguments:{}});
     const engines = result.structuredContent?.engines as Array<{id: string; enabled: boolean}>;
     assert.equal(engines.find(engine => engine.id === 'exa')?.enabled, false);
+    // update_engine_config schreibt dieselbe Datei: der zweite Prozess sieht die
+    // Änderung ohne Neustart, weil jeder Aufruf die Konfiguration neu lädt.
+    const flipped = await clients[0].callTool({name:'update_engine_config',arguments:{enabled:{parallel:false}}});
+    assert.notEqual(flipped.isError,true);
+    const reread = await clients[1].callTool({name:'get_engine_status',arguments:{}});
+    const rerows = reread.structuredContent?.engines as Array<{id: string; enabled: boolean}>;
+    assert.equal(rerows.find(engine => engine.id === 'parallel')?.enabled, false);
   } finally {
     await Promise.all(clients.map(client => client.close()));
     rmSync(dir,{recursive:true,force:true});

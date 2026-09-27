@@ -61,20 +61,22 @@ Add your provider keys in the dashboard, then connect your assistant using the *
 
 ## MCP tools
 
-`web_search` · `fetch_url` · `engine_status` · `open_dashboard`
+`search_web` · `fetch_url` · `get_engine_status` · `update_engine_config` · `open_dashboard`
+
+Every name pairs an action with its target. `update_engine_config` covers what the dashboard's engine list does: enable and disable engines, set the search and fetch rotation order, and set monthly or daily limits per engine. API keys stay in the dashboard. If your client keeps an allowlist of tool names, replace the earlier `web_search` and `engine_status` entries there.
 
 The dashboard's **MCP Tools** tab explains each tool, its parameters, and copyable example calls.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mcp-tools-dark.png">
-  <img src="docs/assets/mcp-tools-light.png" alt="MCP Tools overview with parameters and example calls for all four tools">
+  <img src="docs/assets/mcp-tools-light.png" alt="MCP Tools overview with parameters and example calls for all five tools">
 </picture>
 
 *Actual dashboard UI, shown in English.*
 
 ## Search time filters
 
-`web_search` accepts the following arguments:
+`search_web` accepts the following arguments:
 
 | Parameter | Meaning |
 | --- | --- |
@@ -88,11 +90,11 @@ The dashboard's **MCP Tools** tab explains each tool, its parameters, and copyab
 Use either `timeRange` or explicit dates. One-sided bounds and equal start/end dates are allowed; invalid calendar dates, reversed bounds, and mixing relative and explicit filters are rejected before any provider request.
 
 ```json
-{"name":"web_search","arguments":{"query":"AI inference research","timeRange":"week","numResults":5}}
+{"name":"search_web","arguments":{"query":"AI inference research","timeRange":"week","numResults":5}}
 ```
 
 ```json
-{"name":"web_search","arguments":{"query":"AI inference research","startDate":"2026-08-01","endDate":"2026-08-31"}}
+{"name":"search_web","arguments":{"query":"AI inference research","startDate":"2026-08-01","endDate":"2026-08-31"}}
 ```
 
 Relative windows are resolved **once per request** into UTC dates, including across failover. These are date filters, not exact rolling 24-hour windows; `month` and `year` mean 30 and 365 days, not calendar arithmetic. Exa receives the start of the first UTC day and the end of the last UTC day.

@@ -88,7 +88,7 @@ For remote HTTP access, authentication and advanced settings, see the [operation
 
 ## Multiple harnesses and updates
 
-Each stdio client starts its own server process. Its dashboard binds to the configured port (6277 by default), or the next free port up to 20 ports higher. `open_dashboard` opens the dashboard belonging to that process; it does not attach to another harness's process.
+Each stdio client starts its own server process. Its dashboard binds to the configured port (6277 by default), or the next free port up to 20 ports higher. `open_dashboard` opens the dashboard belonging to that process; it does not attach to another harness's process. Configuration is shared, though: every process reads `~/.config/search-rotation/config.json`, so an `update_engine_config` call in one harness applies to the others as soon as they read the file for their next search.
 
 Processes using the same `SEARCH_ROTATION_HOME` share configuration and counters. Engine settings reload before requests; port and authentication changes require a restart. Rotation cursors, cooldowns and in-flight reservations are per process, so strict-free mode is not a global spending lock across harnesses.
 

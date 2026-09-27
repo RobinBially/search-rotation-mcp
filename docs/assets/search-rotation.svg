@@ -22,7 +22,7 @@
     <text x="76" y="286" fill="#8d9bb5" font-size="12" font-weight="700" letter-spacing="1.5">DEIN MCP-CLIENT</text>
     <text x="76" y="327" fill="#f1f4fb" font-size="23" font-weight="650">Eine Anfrage</text>
     <rect x="75" y="347" width="202" height="39" rx="8" fill="#0c1220"/>
-    <text x="89" y="372" fill="#c5baff" font-family="'SFMono-Regular', Consolas, monospace" font-size="15">web_search(query)</text>
+    <text x="89" y="372" fill="#c5baff" font-family="'SFMono-Regular', Consolas, monospace" font-size="15">search_web(query)</text>
     <text x="76" y="417" fill="#93a0b8" font-size="14">Codex · Claude · Cursor · …</text>
     <path d="M307 346 H368" fill="none" stroke="#78879e" stroke-width="2" marker-end="url(#arrow)"/>
     <rect x="384" y="235" width="328" height="228" rx="18" fill="url(#router)" stroke="#726ca7"/>

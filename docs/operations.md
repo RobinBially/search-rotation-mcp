@@ -15,7 +15,7 @@ Die Cooldowns und Rotationspositionen gelten pro Serverprozess und werden beim N
 
 ### Kontingente und Speicherung
 
-Dashboard und `engine_status` zeigen **Zeitraum, Einheit, Quelle und Schätzstatus**. Google zählt pro Tag in `America/Los_Angeles` einschließlich Sommerzeit; Monatszähler verwenden UTC. Keyless Firecrawl/Exa sowie Jina und DuckDuckGo werden als unbekanntes IP-Kontingent angezeigt, nicht als kostenloses Monatsguthaben.
+Dashboard und `get_engine_status` zeigen **Zeitraum, Einheit, Quelle und Schätzstatus**. Google zählt pro Tag in `America/Los_Angeles` einschließlich Sommerzeit; Monatszähler verwenden UTC. Keyless Firecrawl/Exa sowie Jina und DuckDuckGo werden als unbekanntes IP-Kontingent angezeigt, nicht als kostenloses Monatsguthaben.
 
 Tavily/Firecrawl verwenden, soweit vorhanden, den Remote-Kontostand mit fünf Minuten Cache. Eigene erfolgreiche Aufrufe reduzieren den gecachten Rest sofort. Die lokalen Credit-Schätzungen sind derzeit Tavily Search 1 / Fetch 0,2 sowie Firecrawl Search 2 je angefangene 10 angefragte Treffer / Fetch 1. Die Aufrufzahl wird davon unabhängig gespeichert. Andere Engines zählen lokal Requests; ein aus Geldguthaben abgeleitetes Exa-Limit bleibt eine Schätzung.
 
@@ -46,7 +46,7 @@ Für dieses Beispiel leitet ein HTTPS-Reverse-Proxy `search.example.com` an Port
 
 `/mcp` bleibt Bearer-authentifiziert. Im Browser führt die Dashboard-URL zu **`/login`**: Token einmal im Passwortformular eingeben, anschließend gilt ein acht Stunden gültiges `HttpOnly`-/`SameSite=Strict`-Session-Cookie (bei HTTPS zusätzlich `Secure`). Geheimnisfreie Skripte und Styles sind öffentlich, die Dashboard-API ist geschützt. API-Schreibzugriffe benötigen JSON und eine erlaubte Origin, sofern der Client eine sendet.
 
-Langlebige Tokens erscheinen weder in Logs noch in Tool-Ergebnissen oder URLs. `open_dashboard` öffnet intern einen 60 s gültigen Einmallink; der zurückgegebene Text enthält nur die Basis-URL. Die frühere `?token=…`-Anmeldung entfällt. `--no-dashboard` schaltet Dashboard, Login und Admin-API vollständig ab.
+Langlebige Tokens erscheinen weder in Logs noch in Tool-Ergebnissen oder URLs. `open_dashboard` öffnet intern einen 60 s gültigen Einmallink; der zurückgegebene Text enthält nur die Basis-URL. Die frühere `?token=…`-Anmeldung entfällt. `--no-dashboard` schaltet Dashboard, Login und Admin-API vollständig ab; `get_engine_status` und `update_engine_config` arbeiten weiterhin auf der lokalen Konfigurationsdatei.
 
 Ohne Keys verwenden Firecrawl/Exa die Server-Egress-IP; verfügbare IP-Kontingente hängen deshalb vom Hosting ab.
 

@@ -35,8 +35,8 @@ try {
   assert.deepEqual(icons?.map(icon => icon.theme), ['light', 'dark']);
   assert.ok(icons.every(icon => icon.mimeType === 'image/png' && icon.src.startsWith('data:image/png;base64,')), 'packaged server icons missing');
   const list = await client.listTools();
-  assert.deepEqual(list.tools.map(tool => tool.name).sort(), ['engine_status', 'fetch_url', 'open_dashboard', 'web_search']);
-  console.log(`Installed package v${expected}: MCP handshake and all four tools OK.`);
+  assert.deepEqual(list.tools.map(tool => tool.name).sort(), ['fetch_url', 'get_engine_status', 'open_dashboard', 'search_web', 'update_engine_config']);
+  console.log(`Installed package v${expected}: MCP handshake and all five tools OK.`);
 } finally {
   await client?.close();
   rmSync(temp, { recursive: true, force: true });

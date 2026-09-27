@@ -6,7 +6,7 @@ import path from "node:path";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ConfigStore, configDir } from "./config.js";
+import { ConfigStore, configDir, type PolyConfig } from "./config.js";
 import { ADAPTERS, SEARCH_ORDER, FETCH_ORDER, DEFAULT_ENABLED, KNOWN_IDS } from "./engines/index.js";
 import { UsageStore } from "./usage.js";
 import { HistoryStore } from "./history.js";
@@ -79,6 +79,12 @@ async function main(): Promise<void> {
 
   const month = () => usage.monthKey();
   const status = () => buildStatus(getConfig(), usage, ADAPTERS);
+  const saveConfig = (next: PolyConfig): void => {
+    store.save(next);
+    cfg = next;
+    // Neuer Key? Dann Remote-Quota sofort frisch ziehen statt 5 Min Cache.
+    clearRemoteQuotaCache();
+  };
 
   const testEngine = async (id: string, kind: "search" | "fetch", arg: string, signal?: AbortSignal): Promise<TestResult> => {
     const adapter = ADAPTERS.find(a => a.meta.id === id);
@@ -128,6 +134,7 @@ async function main(): Promise<void> {
   const security = mountSecurity(app, { token, origin, additionalOrigins: [localOrigin], dashboardEnabled });
   const mcpDeps = {
     router, status, month, dashboardUrl,
+    getConfig, saveConfig,
     openDashboard: () => {
       if (dashboardEnabled) openBrowser(security.browserUrl());
     },
@@ -138,12 +145,7 @@ async function main(): Promise<void> {
     buildWebApp({
       configPath: store.file,
       getConfig,
-      saveConfig: (next) => {
-        store.save(next);
-        cfg = next;
-        // Neuer Key? Dann Remote-Quota sofort frisch ziehen statt 5 Min Cache.
-        clearRemoteQuotaCache();
-      },
+      saveConfig,
       adapters: ADAPTERS,
       status,
       month,

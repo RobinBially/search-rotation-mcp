@@ -93,10 +93,15 @@ function statusRow(overrides: Partial<StatusRow> = {}): StatusRow {
 function fakeDeps(
   router: SearchRouter,
   statusRows: StatusRow[] = [],
-): { deps: McpDeps; opened: string[] } {
+  initialConfig?: PolyConfig,
+): { deps: McpDeps; opened: string[]; config(): PolyConfig; saved(): PolyConfig[] } {
   const opened: string[] = [];
+  const saved: PolyConfig[] = [];
+  let config = initialConfig ?? cfg(statusRows.map((row) => ({ id: row.id, enabled: row.enabled })));
   return {
     opened,
+    saved: () => saved,
+    config: () => config,
     deps: {
       router,
       status: async () => statusRows,
@@ -104,6 +109,11 @@ function fakeDeps(
       dashboardUrl: () => "http://127.0.0.1:6277/?token=geheim",
       openDashboard: () => {
         opened.push("open");
+      },
+      getConfig: () => config,
+      saveConfig: (next) => {
+        saved.push(next);
+        config = next;
       },
     },
   };
@@ -143,17 +153,19 @@ test("initialize advertises self-contained dashboard icons for both themes", asy
   } finally { await client.close(); }
 });
 
-test("tools/list: alle vier Tools mit korrekten Schemata", async () => {
+test("tools/list: alle fünf Tools mit durchgängigem verb_noun-Namen und korrekten Schemata", async () => {
   const { deps } = fakeDeps(searchRouter([adapter("a", { search: async () => ({ items: [] }) })]));
   const client = await connect(deps);
 
   const { tools } = await client.listTools();
   assert.deepEqual(
     tools.map((t) => t.name).sort(),
-    ["engine_status", "fetch_url", "open_dashboard", "web_search"],
+    ["fetch_url", "get_engine_status", "open_dashboard", "search_web", "update_engine_config"],
   );
+  // TDQS-Kohärenz: jedes Tool folgt verb_noun (Aktion zuerst, Ziel danach).
+  for (const tool of tools) assert.match(tool.name, /^(search|fetch|get|open|update)_[a-z_]+$/);
 
-  const search = tools.find((t) => t.name === "web_search")!;
+  const search = tools.find((t) => t.name === "search_web")!;
   const sProps = search.inputSchema.properties as Record<string, Record<string, unknown>>;
   assert.deepEqual(search.inputSchema.required, ["query"]);
   assert.equal(sProps.query?.type, "string");
@@ -171,13 +183,33 @@ test("tools/list: alle vier Tools mit korrekten Schemata", async () => {
   assert.equal(fProps.url?.type, "string");
   assert.equal(fProps.url?.format, "uri");
 
-  for (const name of ["engine_status", "open_dashboard"] as const) {
+  for (const name of ["get_engine_status", "open_dashboard"] as const) {
     const tool = tools.find((t) => t.name === name)!;
     assert.deepEqual(tool.inputSchema.required ?? [], []);
   }
+
+  const update = tools.find((t) => t.name === "update_engine_config")!;
+  assert.deepEqual(update.inputSchema.required ?? [], [], "update_engine_config nimmt nur optionale Teiländerungen");
+  assert.deepEqual(Object.keys(update.inputSchema.properties as object).sort(), [
+    "dailyLimits",
+    "enabled",
+    "fetchOrder",
+    "monthlyLimits",
+    "searchOrder",
+  ]);
+
+  // Annotations: Lese-Tools melden readOnly, das Schreibe-Tool nicht. Ohne sie
+  // trägt die Beschreibung die volle Verhaltenslast (TDQS behavioral transparency).
+  const annotations = Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations ?? {}]));
+  for (const name of ["search_web", "fetch_url", "get_engine_status"] as const) {
+    assert.equal(annotations[name].readOnlyHint, true, `${name} fehlt readOnlyHint`);
+  }
+  assert.equal(annotations.update_engine_config.readOnlyHint, false);
+  assert.equal(annotations.update_engine_config.destructiveHint, false);
+  for (const tool of tools) assert.equal(typeof tool.annotations?.openWorldHint, "boolean", `${tool.name} fehlt openWorldHint`);
 });
 
-test("web_search: nummerierte Ergebnisse, Engine-Namen und Failover-Zeile", async () => {
+test("search_web: nummerierte Ergebnisse, Engine-Namen und Failover-Zeile", async () => {
   const adapters = [
     adapter("a", {
       search: async () => {
@@ -197,7 +229,7 @@ test("web_search: nummerierte Ergebnisse, Engine-Namen und Failover-Zeile", asyn
   const client = await connect(deps);
 
   // Erster Rotationsschritt startet bei "a" → a wirft, b antwortet.
-  const r = await client.callTool({ name: "web_search", arguments: { query: "test" } });
+  const r = await client.callTool({ name: "search_web", arguments: { query: "test" } });
   assert.notEqual(r.isError, true);
   const t = text(r);
   assert.match(t, /^Search "test" via b \(2 results\)/);
@@ -207,7 +239,7 @@ test("web_search: nummerierte Ergebnisse, Engine-Namen und Failover-Zeile", asyn
   assert.ok(!t.includes("via a"), "fehlgeschlagene Engine darf nicht als Ergebnis-Engine erscheinen");
 });
 
-test("web_search: engine-Parameter pinnt Engine vorne (preferEngine), numResults wird durchgereicht", async () => {
+test("search_web: engine-Parameter pinnt Engine vorne (preferEngine), numResults wird durchgereicht", async () => {
   const seen: SearchInput[] = [];
   const adapters = [
     adapter("a", {
@@ -229,7 +261,7 @@ test("web_search: engine-Parameter pinnt Engine vorne (preferEngine), numResults
   // Ohne Pin würde der Round Robin über 4 Aufrufe mindestens zweimal "a" wählen.
   for (let i = 0; i < 4; i++) {
     const r = await client.callTool({
-      name: "web_search",
+      name: "search_web",
       arguments: { query: "q", numResults: 3, engine: "b" },
     });
     assert.notEqual(r.isError, true);
@@ -286,7 +318,7 @@ test("fetch_url: genau 50.000 Zeichen werden nicht gekürzt", async () => {
   assert.equal(t.length, "Fetched https://example.com via b".length + 2 + 50_000);
 });
 
-test("engine_status distinguishes disabled configuration, keyless search and historical errors", async () => {
+test("get_engine_status distinguishes disabled configuration, keyless search and historical errors", async () => {
   const rows = [
     statusRow({ id: "duckduckgo", label: "DuckDuckGo", keyless: "ip", enabled: false, capabilities: ["search"] }),
     statusRow({ keyless: "ip", capabilities: ["search"], supportedCapabilities: ["search", "fetch"], keylessCapabilities: ["search"],
@@ -297,7 +329,7 @@ test("engine_status distinguishes disabled configuration, keyless search and his
   const { deps } = fakeDeps(searchRouter([adapter("a", { search: async () => ({ items: [] }) })]), rows);
   const client = await connect(deps);
   try {
-    const result = await client.callTool({ name: "engine_status", arguments: {} });
+    const result = await client.callTool({ name: "get_engine_status", arguments: {} });
     assert.notEqual(result.isError, true);
     const data = result.structuredContent as any;
     assert.deepEqual(JSON.parse(text(result)), data, "text-only clients receive the same facts");
@@ -335,6 +367,118 @@ test("open_dashboard: ruft den Opener auf und nennt die URL", async () => {
   assert.match(text(r), /Dashboard: http:\/\/127\.0\.0\.1:6277\/\?token=geheim/);
 });
 
+test("update_engine_config: schaltet Engines, ordnet die Rotation und setzt Limits", async () => {
+  const rows = [
+    statusRow({ id: "tavily", label: "Tavily", hasKey: true, capabilities: ["search", "fetch"], supportedCapabilities: ["search", "fetch"], searchPosition: 0, fetchPosition: 0 }),
+    statusRow({ id: "duckduckgo", label: "DuckDuckGo", keyless: "ip", keylessCapabilities: ["search"], capabilities: ["search"], supportedCapabilities: ["search"], searchPosition: 1, fetchPosition: -1 }),
+    statusRow({ id: "jina", label: "Jina", keyless: "ip", keylessCapabilities: ["fetch"], capabilities: ["fetch"], supportedCapabilities: ["fetch"], searchPosition: 2, fetchPosition: 1 }),
+  ];
+  const initial: PolyConfig = {
+    version: 1,
+    engines: [
+      { id: "tavily", enabled: true },
+      { id: "duckduckgo", enabled: true },
+      { id: "jina", enabled: true },
+    ],
+    fetchOrder: ["tavily", "jina"],
+    settings: { port: 6277, token: "", monthlyLimits: {} },
+  };
+  const { deps, saved, config } = fakeDeps(searchRouter([]), rows, initial);
+  const client = await connect(deps);
+  try {
+    const r = await client.callTool({
+      name: "update_engine_config",
+      arguments: {
+        enabled: { tavily: false },
+        searchOrder: ["duckduckgo", "tavily"],
+        monthlyLimits: { duckduckgo: 500 },
+      },
+    });
+    assert.notEqual(r.isError, true);
+    assert.equal(saved().length, 1, "genau ein Schreibvorgang");
+    assert.deepEqual(config().engines.map((e) => e.id), ["duckduckgo", "tavily", "jina"]);
+    assert.equal(config().engines.find((e) => e.id === "tavily")?.enabled, false);
+    assert.deepEqual(config().fetchOrder, ["tavily", "jina"]);
+    assert.equal(config().settings.monthlyLimits.duckduckgo, 500);
+
+    const data = r.structuredContent as any;
+    assert.deepEqual(data.changed, [
+      "tavily: enabled true -> false",
+      "search order: tavily, duckduckgo, jina -> duckduckgo, tavily, jina",
+      "duckduckgo: monthly limit provider default -> 500",
+    ]);
+    const ddg = data.engines.find((e: any) => e.id === "duckduckgo");
+    const tavily = data.engines.find((e: any) => e.id === "tavily");
+    assert.equal(ddg.search.configuredOrder, 1);
+    assert.equal(tavily.search.configuredOrder, 2);
+    assert.equal(tavily.search.includedInRotation, false, "deaktivierte Engine ist nicht in der Rotation");
+    assert.equal(tavily.fetch.includedInRotation, false);
+    assert.match(text(r), /Effective configuration:/);
+
+    // Idempotent: identische Werte schreiben nicht erneut.
+    const again = await client.callTool({ name: "update_engine_config", arguments: { enabled: { tavily: false } } });
+    assert.match(text(again), /No change/);
+    assert.equal(saved().length, 1);
+
+    // null entfernt den Override und stellt den Provider-Standard wieder her.
+    const cleared = await client.callTool({ name: "update_engine_config", arguments: { monthlyLimits: { duckduckgo: null } } });
+    assert.equal(saved().length, 2);
+    assert.equal(config().settings.monthlyLimits.duckduckgo, undefined);
+    assert.match(text(cleared), /duckduckgo: monthly limit 500 -> provider default/);
+  } finally { await client.close(); }
+});
+
+test("update_engine_config: Fehler nennen die Ursache und lassen die Konfiguration unberührt", async () => {
+  const rows = [
+    statusRow({ id: "tavily", label: "Tavily", hasKey: false, capabilities: ["search"], supportedCapabilities: ["search"], searchPosition: 0, fetchPosition: -1 }),
+    statusRow({ id: "google-cse", label: "Google", hasKey: true, capabilities: ["search"], supportedCapabilities: ["search"], extraFields: [{ key: "cx", label: "Search engine ID" }], extrasSet: { cx: false }, searchPosition: 1, fetchPosition: -1 }),
+  ];
+  const initial: PolyConfig = {
+    version: 1,
+    engines: [
+      { id: "tavily", enabled: false },
+      { id: "google-cse", enabled: false },
+    ],
+    fetchOrder: [],
+    settings: { port: 6277, token: "", monthlyLimits: {} },
+  };
+  const { deps, saved } = fakeDeps(searchRouter([]), rows, initial);
+  const client = await connect(deps);
+  try {
+    const cases: Array<[Record<string, unknown>, RegExp]> = [
+      [{ enabled: { nope: false } }, /unknown engine id "nope"/],
+      [{ enabled: { tavily: true } }, /no API key is configured/],
+      [{ enabled: { "google-cse": true } }, /extra configuration is missing \(cx\)/],
+      [{ searchOrder: ["tavily"] }, /missing: google-cse/],
+      [{ searchOrder: ["tavily", "nope"] }, /unknown or unsupported engine ids: nope/],
+      [{ fetchOrder: ["tavily"] }, /fetchOrder: unknown or unsupported engine ids: tavily/],
+      [{ monthlyLimits: { nope: 5 } }, /unknown engine id "nope"/],
+      [{}, /Nothing to change/],
+    ];
+    for (const [args, pattern] of cases) {
+      const r = await client.callTool({ name: "update_engine_config", arguments: args });
+      assert.equal(r.isError, true, `${JSON.stringify(args)} muss abgelehnt werden`);
+      assert.match(text(r), pattern);
+    }
+    assert.equal(saved().length, 0, "kein Fehlerfall darf schreiben");
+
+    // Ein wiederholtes enabled=true auf einer bereits laufenden Engine bleibt erlaubt.
+    const rowsRunning = [statusRow({ id: "tavily", label: "Tavily", hasKey: false, capabilities: ["search"], supportedCapabilities: ["search"] })];
+    const running = fakeDeps(searchRouter([]), rowsRunning, {
+      version: 1,
+      engines: [{ id: "tavily", enabled: true }],
+      fetchOrder: [],
+      settings: { port: 6277, token: "", monthlyLimits: {} },
+    });
+    const runningClient = await connect(running.deps);
+    try {
+      const r = await runningClient.callTool({ name: "update_engine_config", arguments: { enabled: { tavily: true } } });
+      assert.notEqual(r.isError, true);
+      assert.match(text(r), /No change/);
+    } finally { await runningClient.close(); }
+  } finally { await client.close(); }
+});
+
 test("Fehlerpfad: RouterError kommt als isError-Ergebnis an (keine Exception)", async () => {
   // Verifiziertes Verhalten (SDK 1.30): createToolError() fängt Handler-Fehler
   // und liefert CallToolResult { isError: true, content: [text(message)] }.
@@ -359,7 +503,7 @@ test("Fehlerpfad: RouterError kommt als isError-Ergebnis an (keine Exception)", 
   const { deps } = fakeDeps(searchRouter(adapters, ["a", "b"]));
   const client = await connect(deps);
 
-  const search = await client.callTool({ name: "web_search", arguments: { query: "q" } });
+  const search = await client.callTool({ name: "search_web", arguments: { query: "q" } });
   assert.equal(search.isError, true);
   assert.match(text(search), /Alle 2 Such-Engines fehlgeschlagen\./);
 
@@ -375,11 +519,11 @@ test("Fehlerpfad: Schema-Verstoß (numResults > 20) kommt als isError-Ergebnis a
   const client = await connect(deps);
 
   const r = await client.callTool({
-    name: "web_search",
+    name: "search_web",
     arguments: { query: "q", numResults: 25 },
   });
   assert.equal(r.isError, true);
-  assert.match(text(r), /Invalid arguments for tool web_search/);
+  assert.match(text(r), /Invalid arguments for tool search_web/);
 });
 
 // --- Dokumentierte Bugs in src/mcp/* (Suite bleibt grün: Skips laufen nicht) ---
@@ -406,16 +550,16 @@ test("FIXED: GET /mcp antwortet im Stateless-Modus mit 405 + Allow: POST", async
   assert.equal(res.headers.get("allow"), "POST");
 });
 
-test('web_search exposes and forwards time filters, prints publication dates and rejects invalid input', async () => {
+test('search_web exposes and forwards time filters, prints publication dates and rejects invalid input', async () => {
   let received: SearchInput | undefined;
   const a = adapter('a', { search: async input => { received = input; return { items: [{ title: 'Paper', url: 'https://example.com', published: '2026-08-15' }] }; } });
   a.supportsSearchTime = () => true;
   const { deps } = fakeDeps(searchRouter([a]));
   const client = await connect(deps);
   try {
-    const schema = (await client.listTools()).tools.find(tool => tool.name === 'web_search')!.inputSchema;
+    const schema = (await client.listTools()).tools.find(tool => tool.name === 'search_web')!.inputSchema;
     for (const key of ['timeRange', 'startDate', 'endDate']) assert.ok(schema.properties?.[key]);
-    const result = await client.callTool({ name: 'web_search', arguments: { query: 'q', startDate: '2026-08-01', endDate: '2026-08-31' } });
+    const result = await client.callTool({ name: 'search_web', arguments: { query: 'q', startDate: '2026-08-01', endDate: '2026-08-31' } });
     assert.equal(result.isError, undefined);
     assert.equal(received?.startDate, '2026-08-01');
     assert.equal(received?.endDate, '2026-08-31');
@@ -423,7 +567,7 @@ test('web_search exposes and forwards time filters, prints publication dates and
     assert.match(text(result), /Time filter: from 2026-08-01 through 2026-08-31/);
     for (const args of [{ startDate: '2026-02-30' }, { timeRange: 'hour' }, { timeRange: 'week', endDate: '2026-09-01' }]) {
       received = undefined;
-      const bad = await client.callTool({ name: 'web_search', arguments: { query: 'q', ...args } });
+      const bad = await client.callTool({ name: 'search_web', arguments: { query: 'q', ...args } });
       assert.equal(bad.isError, true);
       assert.equal(received, undefined);
     }

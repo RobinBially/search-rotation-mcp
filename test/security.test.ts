@@ -11,6 +11,11 @@ function fixture(token = '') {
     return { app, security };
 }
 const base = 'http://127.0.0.1:6277';
+/** Minimale Config-Deps für MCP-Aufbauten, die keine Engine-Konfiguration anfassen. */
+const configDeps = {
+    getConfig: () => ({ version: 1 as const, engines: [], fetchOrder: [], settings: { port: 6277, token: '', monthlyLimits: {} } }),
+    saveConfig: () => { },
+};
 test('blocks cross-origin simple POST and rebinding host, allows same-origin JSON', async () => {
     const { app } = fixture();
     assert.equal((await app.request(base + '/api/test', { method: 'POST', headers: { origin: 'https://evil.example', 'content-type': 'text/plain' }, body: '{}' })).status, 403);
@@ -50,13 +55,13 @@ test('MCP preserves per-engine RouterError diagnostics and passes cancellation s
     let signal: AbortSignal | undefined;
     const server = buildMcpServer({ router: { search: async (_input: unknown, opts: {
                 signal?: AbortSignal;
-            }) => { signal = opts.signal; throw new RouterError('All failed', [{ engine: 'test', ok: false, ms: 3, error: 'HTTP 429' }]); } } as never, status: async () => [], month: () => '', dashboardUrl: () => null, openDashboard: () => { } });
+            }) => { signal = opts.signal; throw new RouterError('All failed', [{ engine: 'test', ok: false, ms: 3, error: 'HTTP 429' }]); } } as never, status: async () => [], month: () => '', dashboardUrl: () => null, openDashboard: () => { }, ...configDeps });
     const client = new Client({ name: 'test', version: '1' });
     const [a, b] = InMemoryTransport.createLinkedPair();
     await server.connect(a);
     await client.connect(b);
     try {
-        const result = await client.callTool({ name: 'web_search', arguments: { query: 'test' } });
+        const result = await client.callTool({ name: 'search_web', arguments: { query: 'test' } });
         assert.equal(result.isError, true);
         assert.match(JSON.stringify(result.content), /HTTP 429/);
         assert.ok(signal instanceof AbortSignal);
@@ -127,7 +132,7 @@ test('HTTP client disconnect aborts the active router operation', async () => {
             });
             return { items: [], engine: 'mock', attempts: [] };
         } } as never,
-        status: async () => [], month: () => '', dashboardUrl: () => null, openDashboard: () => {},
+        status: async () => [], month: () => '', dashboardUrl: () => null, openDashboard: () => {}, ...configDeps,
     }, { allowedHosts: ['127.0.0.1'], allowedOrigins: ['http://127.0.0.1'] });
     const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 });
     await once(server, 'listening');
@@ -135,7 +140,7 @@ test('HTTP client disconnect aborts the active router operation', async () => {
     try {
         const req = request({ hostname: '127.0.0.1', port: address.port, path: '/mcp', method: 'POST', headers: { host: '127.0.0.1', 'content-type': 'application/json', accept: 'application/json, text/event-stream' } });
         req.on('error', () => {});
-        req.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'web_search', arguments: { query: 'mock' } } }));
+        req.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'search_web', arguments: { query: 'mock' } } }));
         await ready;
         req.destroy();
         assert.equal(await aborted, true);
@@ -174,11 +179,11 @@ test('MCP status reports quota period, units, source and estimates', async () =>
         { label: 'Monthly', quota: { period: 'month', unit: 'credits', limit: 1000, used: 2.5, source: 'remote', estimated: false } },
         { label: 'Keyless', quota: { period: 'ip', unit: 'requests', limit: null, used: null, source: 'unknown', estimated: true } },
     ].map(row => ({ ...row, enabled: true, capabilities: ['search'], keyless: 'ip', hasKey: row.label !== 'Keyless', searchPosition: 0, used: { search: 999, fetch: 0 }, monthlyLimit: 3000 }));
-    const server = buildMcpServer({ router: {} as never, status: async () => rows as never, month: () => '', dashboardUrl: () => null, openDashboard: () => {} });
+    const server = buildMcpServer({ router: {} as never, status: async () => rows as never, month: () => '', dashboardUrl: () => null, openDashboard: () => {}, ...configDeps });
     const client = new Client({ name: 'test', version: '1' });
     const [a,b] = InMemoryTransport.createLinkedPair();await server.connect(a);await client.connect(b);
     try {
-        const result = await client.callTool({ name: 'engine_status', arguments: {} });
+        const result = await client.callTool({ name: 'get_engine_status', arguments: {} });
         const data = result.structuredContent as any;
         const [daily, monthly, keyless] = data.engines;
         assert.equal(daily.quota.used, 12);

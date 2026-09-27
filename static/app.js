@@ -478,9 +478,10 @@ function renderSnippets() {
 
 function renderTools() {
   const tools = [
-    { name: "web_search", icon: "search", params: [["query", "query"], ["numResults", "count"], ["engine", "engine"], ["timeRange", "timeRange"], ["startDate", "startDate"], ["endDate", "endDate"]], args: { query: "latest AI research", numResults: 5, timeRange: "week" } },
+    { name: "search_web", icon: "search", params: [["query", "query"], ["numResults", "count"], ["engine", "engine"], ["timeRange", "timeRange"], ["startDate", "startDate"], ["endDate", "endDate"]], args: { query: "latest AI research", numResults: 5, timeRange: "week" } },
     { name: "fetch_url", icon: "link", params: [["url", "url"]], args: { url: "https://example.com" } },
-    { name: "engine_status", icon: "gauge", params: [], args: {} },
+    { name: "get_engine_status", icon: "gauge", params: [], args: {} },
+    { name: "update_engine_config", icon: "grip", params: [["enabled", "enabled"], ["searchOrder", "searchOrder"], ["fetchOrder", "fetchOrder"], ["monthlyLimits", "monthlyLimits"], ["dailyLimits", "dailyLimits"]], args: { enabled: { duckduckgo: false }, searchOrder: ["tavily", "firecrawl", "parallel", "exa", "google-cse", "duckduckgo"] } },
     { name: "open_dashboard", icon: "stack", params: [], args: {} },
   ];
   $("#view").innerHTML = '<div class="page">' + pageHead(t("tools.title"), t("tools.sub")) +
