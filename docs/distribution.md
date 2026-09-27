@@ -16,9 +16,6 @@ and `open_dashboard`.
 | Glama | [directory entry](https://glama.ai/mcp/servers/robin-bially/search-rotation-mcp), rated A | Glama indexes the repository on its own | listed under the current account name; Glama picked up the rename by itself, the previous `RobinBially` path still resolves |
 | mcpservers.org | [submission](https://mcpservers.org/de/submit) from 2026-09-26 | reviewed by the site | in review, up to two weeks |
 | PulseMCP | — | ingests the official registry | submissions paused, not listed yet |
-| [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers/pull/15171) | Search & Data Extraction | maintainers | pull request open, listing checks done |
-| [YuzeHao2023/Awesome-MCP-Servers](https://github.com/YuzeHao2023/Awesome-MCP-Servers/pull/550) | Search & Web | maintainers | pull request open |
-| [ever-works/awesome-mcp-servers](https://github.com/ever-works/awesome-mcp-servers/pull/188) | Web Search | maintainers | pull request open |
 
 Channels that build on the official registry follow a release by themselves, so a
 release needs no manual work for them.
@@ -48,10 +45,18 @@ Four details are easy to forget:
 - After a release: `npm view search-rotation version` and the [registry entry](https://registry.modelcontextprotocol.io/?q=io.github.robin-bially%2Fsearch-rotation) should both show the new version. The release script already waits for npm. A failed publish workflow leaves the release and the tap ahead of npm, which happened with 0.4.11; `gh workflow run publish.yml` then repairs npm and the registry in one run.
 - Dependency and tap maintenance runs outside this repository on a biweekly schedule.
 - The GitHub account moved from `localfoundry` to `robin-bially` on 2026-09-26. The registry has no unpublish, so the entry `io.github.localfoundry/search-rotation` stays frozen at 0.4.10 while the next release adds `io.github.robin-bially/search-rotation`. The old handle is free again, so anything still pointing there can end up at a different account.
-- Open externally: mcpservers.org reviews the submission, PulseMCP is paused, and the three list pull requests wait for their maintainers. Glama has re-crawled the repository after the rename.
+- Open externally: mcpservers.org reviews the submission and PulseMCP is paused. Glama has re-crawled the repository after the rename.
 
 ## Deliberately not used
 
 Directories that require a new account before a submission (Glama's own form,
 mcp.so) are skipped. The Glama listing exists because Glama indexes public GitHub
 repositories without a submission; it picked up the repository rename by itself.
+
+Curated awesome lists are skipped too. The three merge requests opened on
+2026-09-26 (punkpeye/awesome-mcp-servers#15171, YuzeHao2023/Awesome-MCP-Servers#550,
+ever-works/awesome-mcp-servers#188) were closed on 2026-09-27 without waiting for a
+reviewer: the official MCP Registry and Glama already carry the server, and neither
+list adds discovery that the registry does not. PulseMCP and Glama derive their
+entries from the registry and the public repository, so no manual list work is
+needed to stay visible.
