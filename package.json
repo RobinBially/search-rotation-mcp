@@ -1,6 +1,6 @@
 {
   "name": "search-rotation",
-  "version": "0.4.11",
+  "version": "0.5.0",
   "mcpName": "io.github.robin-bially/search-rotation",
   "description": "Round-robin web search over the free tiers of multiple search APIs (Tavily, Firecrawl, Parallel, Exa, Google PSE, Jina, DuckDuckGo) as an MCP server — with a local dashboard for API keys, engine order/toggles and live quota status.",
   "type": "module",

@@ -43,7 +43,7 @@ client to run `search-rotation` with no arguments. See the
 ### Pinned release from GitHub
 
 ```sh
-npx -y --allow-git=all github:robin-bially/search-rotation-mcp#v0.4.11
+npx -y --allow-git=all github:robin-bially/search-rotation-mcp#v0.5.0
 ```
 
 Use this when you want a fixed version instead of the current npm release.

@@ -8,7 +8,7 @@
     "source": "github",
     "id": "1357478105"
   },
-  "version": "0.4.11",
+  "version": "0.5.0",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/robin-bially/search-rotation-mcp/main/docs/assets/brand/icon-light-512.png",
@@ -31,7 +31,7 @@
     {
       "registryType": "npm",
       "identifier": "search-rotation",
-      "version": "0.4.11",
+      "version": "0.5.0",
       "transport": {
         "type": "stdio"
       }
