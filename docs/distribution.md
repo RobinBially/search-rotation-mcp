@@ -1,16 +1,18 @@
 # Distribution and listings
 
 Where search-rotation is published or listed, who keeps each channel current, and
-what still needs attention. Snapshot: 2026-09-26, after the account rename from `localfoundry` to `robin-bially` and the 0.4.11 release.
+what still needs attention. Snapshot: 2026-09-27, after the 0.5.0 release that renamed
+the MCP tools to `search_web`, `fetch_url`, `get_engine_status`, `update_engine_config`
+and `open_dashboard`.
 
 ## Channels
 
 | Channel | Entry | Kept current by | State |
 | --- | --- | --- | --- |
-| npm | `search-rotation` | release workflow, trusted publishing | 0.4.11 |
-| Homebrew | `brew install robin-bially/tap/search-rotation` | release script writes the formula | 0.4.11 |
-| Official MCP Registry | `io.github.robin-bially/search-rotation` | release workflow, GitHub OIDC | 0.4.11; the old `io.github.localfoundry/search-rotation` stays frozen at 0.4.10 because the registry has no unpublish |
-| GitHub releases | tag, tarball and checksum | release script | v0.4.11 |
+| npm | `search-rotation` | release workflow, trusted publishing | 0.5.0 |
+| Homebrew | `brew install robin-bially/tap/search-rotation` | release script writes the formula | 0.5.0 |
+| Official MCP Registry | `io.github.robin-bially/search-rotation` | release workflow, GitHub OIDC | 0.5.0; the old `io.github.localfoundry/search-rotation` stays frozen at 0.4.10 because the registry has no unpublish |
+| GitHub releases | tag, tarball and checksum | release script | v0.5.0 |
 | Glama | [directory entry](https://glama.ai/mcp/servers/robin-bially/search-rotation-mcp), rated A | Glama indexes the repository on its own | listed under the current account name; Glama picked up the rename by itself, the previous `RobinBially` path still resolves |
 | mcpservers.org | [submission](https://mcpservers.org/de/submit) from 2026-09-26 | reviewed by the site | in review, up to two weeks |
 | PulseMCP | — | ingests the official registry | submissions paused, not listed yet |
@@ -37,6 +39,8 @@ Four details are easy to forget:
 - `server.json` and `mcpName` must name the same server; `test/registry-manifest.test.ts` fails when they drift apart.
 - The registry limits `description` to 100 characters.
 - The registry verifies ownership through the published npm package, so a manifest can only be registered once that version exists on npm. The workflow skips an already published version, which makes a re-run safe.
+- That ownership check also races npm propagation: with 0.5.0 the registry answered `version '0.5.0' was not found (status: 404)` seconds after the publish, and `gh run rerun <id> --failed` registered the version on the second attempt without republishing (the publish step sees the existing version and skips).
+- The Homebrew formula carries a `test do` block that asserts the tool names from `tools/list`; it has to follow a rename like the one in 0.5.0, and `brew audit` does not catch a stale list.
 - npm trusted publishing is bound to one repository, so an account rename has to be re-pointed by hand: `npm trust github search-rotation --file publish.yml --repo robin-bially/search-rotation-mcp --allow-publish` (one-time password in the browser). That was missed for 0.4.11, whose publish failed with `404 Not Found - PUT https://registry.npmjs.org/search-rotation`; the stale entry for `localfoundry/search-rotation-mcp` was revoked on 2026-09-26, because the freed owner name would otherwise let a stranger publish to this package.
 
 ## Recurring checks
